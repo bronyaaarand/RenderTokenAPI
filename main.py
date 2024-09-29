@@ -1,7 +1,5 @@
 import requests
 from flask import Flask, jsonify
-import threading
-import time
 from pymongo import MongoClient
 
 app = Flask(__name__)
@@ -41,27 +39,26 @@ def call_get_access_token():
 
     try:
         auth_refresh = {
-                'Secret_key': '14p63uLCY20Os68NFWIU'
-            }
+            'Secret_key': '14p63uLCY20Os68NFWIU'
+        }
         body_refresh = {
             "refresh_token": refresh_token,
             "grant_type": "refresh_token",
             "app_id": '1888287946753069132'
         }
+        
         response = requests.post("https://oauth.zaloapp.com/v4/oa/access_token", data=body_refresh, headers=auth_refresh)
         print(response.json(), response.text)
-        if response.json()['access_token']:
+
+        if response.json().get('access_token'):
             data = response.json()
-            print(data, response.text)
             access_token = data.get("access_token")
             new_refresh_token = data.get("refresh_token", refresh_token)  
             expires_in = int(data.get("expires_in"))
+
             print(f"Access token received: {access_token}, expires in: {expires_in} seconds")
             
             update_tokens_in_db(access_token, new_refresh_token, expires_in)
-
-            if expires_in:
-                schedule_token_refresh(expires_in)
             return True
         else:
             print(f"Failed to get access token, status code: {response.status_code}")
@@ -70,23 +67,12 @@ def call_get_access_token():
         print(f"Error calling get_access_token: {e}")
         return False
 
-def refresh_access_token():
-    print("Refreshing access token...")
-    call_get_access_token()
-
-def schedule_token_refresh(expires_in):
-    def delayed_token_refresh():
-        print(f"Waiting for {expires_in} seconds until token expires...")
-        time.sleep(expires_in) 
-        refresh_access_token()  
-    threading.Thread(target=delayed_token_refresh).start()
-
 @app.route("/start-token-process")
 def start_token_process():
     if call_get_access_token():
-        return jsonify({"message": "Initial access token obtained and scheduled for refresh!"})
+        return jsonify({"message": "Access token obtained and updated!"})
     else:
-        return jsonify({"message": "Failed to obtain initial access token!"}), 500
+        return jsonify({"message": "Failed to obtain access token!"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
